@@ -1,0 +1,41 @@
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: jungle-wagering-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jungle_wagering
+      POSTGRES_USER: jungle_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env ou no ambiente}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - jungle_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jungle_app -d jungle_wagering"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:4
+    container_name: jungle-wagering-localstack
+    restart: unless-stopped
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: us-east-1
+      SQS_MAX_RECEIVE_COUNT: ${SQS_MAX_RECEIVE_COUNT:-5}
+      SQS_VISIBILITY_TIMEOUT_SECONDS: ${SQS_VISIBILITY_TIMEOUT_SECONDS:-30}
+    ports:
+      - "127.0.0.1:4566:4566"
+    volumes:
+      - ./docker/localstack/init-queues.sh:/etc/localstack/init/ready.d/init-queues.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/init/ready | grep -q '\"completed\": true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  jungle_postgres_data:
